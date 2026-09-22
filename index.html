@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#173b2a">
 <meta name="description" content="Aves Brasil — identificação acústica para observadores de aves">
+<link rel="manifest" href="./manifest.json">
 <title>Aves Brasil | Birdwatching</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -84,7 +85,7 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 <section class="hero">
   <div class="eyebrow">Identificação acústica</div>
   <h2>Qual ave está cantando?</h2>
-  <p class="desc">Grave a vocalização por alguns segundos. Esta versão já testa o microfone e prepara a experiência para integração com o BirdNET.</p>
+  <p class="desc">Grave a vocalização por alguns segundos para identificar a ave localmente com BirdNET.</p>
   <div class="recorder" id="recorder">
     <div class="wave" id="wave"></div>
     <button class="record" id="recordBtn" aria-label="Iniciar gravação">🎙️</button>
@@ -93,7 +94,7 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
   </div>
 
   <div class="result" id="result">
-    <div class="species"><div class="birdicon">🐦</div><div><h3 id="species">Sabiá-laranjeira</h3><div class="scientific">Turdus rufiventris</div></div></div>
+    <div class="species"><div class="birdicon">🐦</div><div><h3 id="species">—</h3><div class="scientific" id="scientific">—</div></div></div>
     <div class="conf"><div class="confline"><span>Confiança da identificação</span><span id="confidence">—</span></div><div class="track"><div class="fill" id="fill"></div></div></div>
     <div class="actions"><button class="secondary" id="newBtn">🎙️ Nova análise</button><button class="primary" id="saveBtn">📌 Registrar</button></div>
   </div>
@@ -126,7 +127,7 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
   <div class="observation"><div class="thumb">🐦</div><div><div class="obsname">Aguardando sua primeira observação</div><div class="obsmeta">As aves identificadas aparecerão aqui.</div></div></div>
 </section>
 </main>
-<footer>Aves Brasil • Protótipo v0.1 • Identificação BirdNET será conectada no backend</footer>
+<footer>Aves Brasil • Protótipo v0.1 • Identificação BirdNET local</footer>
 </div>
 <div class="toast" id="toast"></div>
 <div class="modal" id="authModal">
@@ -144,14 +145,17 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
   </div>
 </div>
 
-<script>
+<script type="module">
+import { BirdNetClient } from './js/birdnet-client.js';
 const SUPABASE_URL = "https://rovmeerszxujrbcecaka.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvdm1lZXJzenh1anJiY2VjYWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwODI5MDcsImV4cCI6MjEwNTY1ODkwN30.L4QIRna9FyCRYjYpEQKJBV1SMpztxqJXrZrKRVzKZrk";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) || null;
 
 let currentUser = null;
 let currentCoords = null;
 let lastAudioBlob = null;
+let lastIdentification = null;
+const birdnet = new BirdNetClient();
 
 const wave=document.getElementById('wave');
 for(let i=0;i<25;i++){const b=document.createElement('div');b.className='bar';wave.appendChild(b)}
@@ -173,8 +177,22 @@ async function startRec(){
  }catch(e){status.textContent='Não foi possível acessar o microfone';toast('Permita o acesso ao microfone no navegador')}
 }
 function stopRec(){if(media&&media.state!=='inactive')media.stop();clearInterval(interval);rec.classList.remove('recording');btn.classList.remove('active');btn.textContent='🎙️';status.textContent='Processando gravação…'}
-function analyze(){
- setTimeout(()=>{result.classList.add('show');status.textContent='Áudio captado. A identificação BirdNET será conectada nesta etapa.';conf.textContent='94%';fill.style.width='94%';toast('Gravação concluída — resultado demonstrativo')},700)
+async function analyze(){
+ try{
+  status.textContent='Analisando localmente com BirdNET…';
+  const identification=await birdnet.analyzeBlob(lastAudioBlob,{
+    latitude:currentCoords?.latitude,longitude:currentCoords?.longitude
+  });
+  if(!identification.best)throw new Error('Nenhuma espécie foi identificada.');
+  lastIdentification=identification.best;
+  const confidence=Math.max(0,Math.min(100,Math.round(lastIdentification.confidence*100)));
+  document.getElementById('species').textContent=lastIdentification.commonNameI18n||lastIdentification.commonName;
+  document.getElementById('scientific').textContent=lastIdentification.scientificName;
+  result.classList.add('show');status.textContent='Identificação concluída no dispositivo.';
+  conf.textContent=`${confidence}%`;fill.style.width=`${confidence}%`;toast('Análise BirdNET concluída');
+ }catch(e){
+  lastIdentification=null;result.classList.remove('show');status.textContent=e.message||'Não foi possível analisar a gravação.';toast('Falha na identificação local');
+ }
 }
 btn.onclick=()=>media&&media.state==='recording'?stopRec():startRec();
 document.getElementById('newBtn').onclick=()=>{result.classList.remove('show');timer.textContent='00:00';status.textContent='Toque para ouvir o ambiente';fill.style.width='0';conf.textContent='—'}
@@ -219,6 +237,7 @@ function startLocation(){
   navigator.geolocation.watchPosition(
     pos=>{
       currentCoords={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy};
+      birdnet.setLocation(currentCoords.latitude,currentCoords.longitude);
       document.getElementById('gps').textContent='GPS ativo';
     },
     ()=>document.getElementById('gps').textContent='localização desativada',
@@ -232,16 +251,17 @@ document.getElementById('loginOpen').onclick=()=>authModal.classList.add('show')
 document.getElementById('closeAuth').onclick=()=>authModal.classList.remove('show');
 
 async function refreshAuth(){
+  if(!sb)return;
   const {data:{session}}=await sb.auth.getSession();
   currentUser=session?.user||null;
   document.getElementById('userState').textContent=currentUser ? `Conectado: ${currentUser.email}` : 'Visitante';
   document.getElementById('loginOpen').style.display=currentUser?'none':'inline-block';
   document.getElementById('logoutBtn').style.display=currentUser?'inline-block':'none';
 }
-sb.auth.onAuthStateChange(()=>refreshAuth());
-refreshAuth();
+if(sb){sb.auth.onAuthStateChange(()=>refreshAuth());refreshAuth()}
 
 document.getElementById('signUpBtn').onclick=async()=>{
+  if(!sb)return toast('Autenticação indisponível sem conexão');
   const email=document.getElementById('authEmail').value.trim();
   const password=document.getElementById('authPassword').value;
   const name=document.getElementById('authName').value.trim();
@@ -250,24 +270,26 @@ document.getElementById('signUpBtn').onclick=async()=>{
   authModal.classList.remove('show');toast('Conta criada e conectada');refreshAuth();
 };
 document.getElementById('signInBtn').onclick=async()=>{
+  if(!sb)return toast('Autenticação indisponível sem conexão');
   const email=document.getElementById('authEmail').value.trim();
   const password=document.getElementById('authPassword').value;
   const {error}=await sb.auth.signInWithPassword({email,password});
   if(error)return toast('Não foi possível entrar: '+error.message);
   authModal.classList.remove('show');toast('Login realizado');refreshAuth();
 };
-document.getElementById('logoutBtn').onclick=async()=>{await sb.auth.signOut();toast('Sessão encerrada');refreshAuth()};
+document.getElementById('logoutBtn').onclick=async()=>{if(!sb)return;await sb.auth.signOut();toast('Sessão encerrada');refreshAuth()};
 
 async function saveObservation(){
+  if(!sb)return toast('Conecte-se para salvar a observação');
   if(!currentUser){authModal.classList.add('show');return toast('Entre para salvar a observação')}
   const payload={
     user_id:currentUser.id,
     detected_common_name:document.getElementById('species').textContent,
-    detected_scientific_name:'Turdus rufiventris',
-    confidence:94,
+    detected_scientific_name:lastIdentification?.scientificName||document.getElementById('scientific').textContent,
+    confidence:Math.round((lastIdentification?.confidence||0)*100),
     latitude:currentCoords?.latitude??null,
     longitude:currentCoords?.longitude??null,
-    identification_source:'prototype'
+    identification_source:'birdnet-local'
   };
   const {data,error}=await sb.from('observations').insert(payload).select('id').single();
   if(error)return toast('Erro ao salvar: '+error.message);
@@ -284,6 +306,8 @@ async function saveObservation(){
   }
   toast('Observação salva no Songbird');
 }
+
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 
 </script>
 </body>
