@@ -205,13 +205,13 @@ function renderSounds(query){
       </div>
     </div>`).join('');
 }
-document.getElementById('searchBird').addEventListener('keydown',e=>{if(e.key==='Enter')renderSounds(e.target.value)});
-document.getElementById('searchBird').addEventListener('input',()=>{});
-document.getElementById('searchBird').value='Sabiá-laranjeira';
-document.getElementById('searchBird').closest('.section')?.querySelector('.link')?.addEventListener('click',()=>document.getElementById('vocalizacoes').scrollIntoView({behavior:'smooth'}));
-document.getElementById('searchBird').parentElement.querySelector('#searchBird');
-document.getElementById('searchBird').nextElementSibling.addEventListener('click',()=>renderSounds(document.getElementById('birdSearch').value));
-renderSounds('Sabiá-laranjeira');
+const birdSearchInput=document.getElementById('birdSearch');
+const birdSearchButton=document.getElementById('searchBird');
+birdSearchInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter') renderSounds(birdSearchInput.value);
+});
+birdSearchButton.addEventListener('click',()=>renderSounds(birdSearchInput.value));
+renderSounds(birdSearchInput.value || 'Sabiá-laranjeira');
 
 
 function startLocation(){
