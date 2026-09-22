@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#173b2a">
+<meta name="description" content="Aves Brasil — identificação acústica para observadores de aves">
+<title>Aves Brasil | Birdwatching</title>
+<style>
+:root{
+  --bg:#f4f1e8;--card:#fffdf8;--ink:#173025;--muted:#68756d;
+  --green:#173b2a;--green2:#2f6248;--gold:#c9953d;--line:#dfe3da;
+  --danger:#a33b36;--shadow:0 14px 40px rgba(23,48,37,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:560px;margin:auto;min-height:100vh;padding-bottom:30px}
+header{padding:28px 20px 18px;background:linear-gradient(145deg,#173b2a,#28553d);color:#fff;border-radius:0 0 28px 28px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.12);display:grid;place-items:center;font-size:25px}
+.brand h1{font-size:20px;margin:0;letter-spacing:-.3px}.brand p{margin:2px 0 0;color:#cddbd2;font-size:12px}
+.location{margin-top:22px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#d8e4dc}
+main{padding:20px}
+.hero{background:var(--card);border:1px solid var(--line);border-radius:25px;padding:22px;box-shadow:var(--shadow)}
+.eyebrow{text-transform:uppercase;letter-spacing:1.5px;color:var(--green2);font-size:11px;font-weight:800}
+h2{font-size:25px;line-height:1.1;margin:7px 0 8px;letter-spacing:-.6px}
+.desc{color:var(--muted);font-size:14px;line-height:1.5;margin:0}
+.recorder{margin-top:22px;border-radius:22px;background:#edf1ea;padding:20px;text-align:center}
+.wave{height:74px;display:flex;justify-content:center;align-items:center;gap:4px}
+.bar{width:4px;border-radius:8px;background:#6f8d7b;height:18px;animation:pulse 1s infinite ease-in-out;animation-play-state:paused}
+.bar:nth-child(2n){animation-delay:.12s}.bar:nth-child(3n){animation-delay:.24s}.bar:nth-child(4n){animation-delay:.36s}
+.recording .bar{animation-play-state:running}
+@keyframes pulse{0%,100%{height:12px}50%{height:48px}}
+button{border:0;font:inherit;cursor:pointer}
+.record{width:76px;height:76px;border-radius:50%;background:var(--green);color:white;font-size:28px;box-shadow:0 9px 20px rgba(23,59,42,.22);transition:.2s}
+.record:hover{transform:translateY(-2px)}.record.active{background:var(--danger)}
+.status{font-size:13px;color:var(--muted);margin-top:12px;font-weight:650}
+.timer{font-variant-numeric:tabular-nums;margin-top:5px;font-size:12px;color:#87938c}
+.result{display:none;margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:22px;padding:18px}
+.result.show{display:block}
+.species{display:flex;gap:14px;align-items:center}.birdicon{width:52px;height:52px;border-radius:16px;background:#e6eee8;display:grid;place-items:center;font-size:28px}
+.species h3{margin:0;font-size:19px}.scientific{color:var(--muted);font-size:12px;font-style:italic;margin-top:2px}
+.conf{margin-top:15px}.confline{display:flex;justify-content:space-between;font-size:12px;font-weight:750}.track{height:7px;background:#e4e8e2;border-radius:8px;margin-top:7px;overflow:hidden}.fill{height:100%;width:0;background:var(--green2);transition:1s}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.secondary{padding:13px;border-radius:14px;background:#eef2ec;color:var(--green);font-weight:750}.primary{padding:13px;border-radius:14px;background:var(--green);color:white;font-weight:750}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.tile{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:17px;min-height:112px}.tile .icon{font-size:24px}.tile strong{display:block;margin-top:12px;font-size:14px}.tile span{font-size:12px;color:var(--muted)}
+.section{margin-top:25px}.sectionhead{display:flex;justify-content:space-between;align-items:center}.section h3{margin:0;font-size:16px}.link{color:var(--green2);font-size:12px;font-weight:750}
+.observation{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);padding:13px;border-radius:17px;margin-top:10px}.thumb{width:48px;height:48px;border-radius:14px;background:#dfe9e0;display:grid;place-items:center;font-size:23px}.obsname{font-weight:750;font-size:13px}.obsmeta{font-size:11px;color:var(--muted);margin-top:3px}
+footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,20px);background:#173b2a;color:#fff;padding:12px 16px;border-radius:14px;font-size:12px;opacity:0;pointer-events:none;transition:.25s;box-shadow:var(--shadow)}.toast.show{opacity:1;transform:translate(-50%,0)}
+
+.soundcard{margin-top:12px;border:1px solid var(--line);border-radius:17px;padding:13px;background:#fff}
+.soundtop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.soundname{font-weight:800;font-size:13px}.soundmeta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+.soundtype{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--green2);background:#eaf0eb;padding:6px 8px;border-radius:9px;white-space:nowrap}
+.soundcard audio{width:100%;height:38px;margin-top:10px}
+.soundlinks{display:flex;gap:12px;margin-top:7px}.soundlinks a{font-size:11px;color:var(--green2);font-weight:750;text-decoration:none}
+@media(min-width:700px){body{padding:20px}.app{border-radius:30px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.08)}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><div class="logo">🐦</div><div><h1>Aves Brasil</h1><p>Seu diário de campo inteligente</p></div></div>
+  <div class="location"><span>📍 Localização do dispositivo</span><span id="gps">não definida</span></div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="eyebrow">Identificação acústica</div>
+  <h2>Qual ave está cantando?</h2>
+  <p class="desc">Grave a vocalização por alguns segundos. Esta versão já testa o microfone e prepara a experiência para integração com o BirdNET.</p>
+  <div class="recorder" id="recorder">
+    <div class="wave" id="wave"></div>
+    <button class="record" id="recordBtn" aria-label="Iniciar gravação">🎙️</button>
+    <div class="status" id="status">Toque para ouvir o ambiente</div>
+    <div class="timer" id="timer">00:00</div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="species"><div class="birdicon">🐦</div><div><h3 id="species">Sabiá-laranjeira</h3><div class="scientific">Turdus rufiventris</div></div></div>
+    <div class="conf"><div class="confline"><span>Confiança da identificação</span><span id="confidence">—</span></div><div class="track"><div class="fill" id="fill"></div></div></div>
+    <div class="actions"><button class="secondary" id="newBtn">🎙️ Nova análise</button><button class="primary" id="saveBtn">📌 Registrar</button></div>
+  </div>
+</section>
+
+<div class="grid">
+  <button class="tile" id="photoBtn"><div class="icon">📷</div><strong>Registrar observação</strong><span>Foto, local, data e áudio</span></button>
+  <button class="tile" id="soundsBtn"><div class="icon">🔊</div><strong>Vocalizações</strong><span>Banco de sons por espécie</span></button>
+  <button class="tile"><div class="icon">🗺️</div><strong>Mapa de registros</strong><span>Explore suas observações</span></button>
+  <button class="tile"><div class="icon">📚</div><strong>Guia de aves</strong><span>Espécies da fauna brasileira</span></button>
+</div>
+
+
+<section class="section" id="vocalizacoes">
+  <div class="sectionhead"><h3>Vocalizações</h3><span class="link">Xeno-canto • Macaulay</span></div>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-top:10px">
+    <div style="display:flex;gap:8px">
+      <input id="birdSearch" value="Sabiá-laranjeira" placeholder="Digite uma espécie..."
+        style="flex:1;min-width:0;border:1px solid var(--line);border-radius:13px;padding:12px;font:inherit;color:var(--ink);background:#fff">
+      <button id="searchBird" class="primary" style="padding:12px 14px;border-radius:13px">Buscar</button>
+    </div>
+    <div id="soundStatus" style="font-size:11px;color:var(--muted);margin:10px 2px 0">
+      Resultados demonstrativos — conectaremos as APIs/bases na próxima etapa.
+    </div>
+    <div id="soundResults"></div>
+  </div>
+</section>
+<section class="section">
+  <div class="sectionhead"><h3>Últimas observações</h3><span class="link">Ver todas</span></div>
+  <div class="observation"><div class="thumb">🐦</div><div><div class="obsname">Aguardando sua primeira observação</div><div class="obsmeta">As aves identificadas aparecerão aqui.</div></div></div>
+</section>
+</main>
+<footer>Aves Brasil • Protótipo v0.1 • Identificação BirdNET será conectada no backend</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const wave=document.getElementById('wave');
+for(let i=0;i<25;i++){const b=document.createElement('div');b.className='bar';wave.appendChild(b)}
+const btn=document.getElementById('recordBtn'), rec=document.getElementById('recorder');
+const status=document.getElementById('status'), timer=document.getElementById('timer');
+const result=document.getElementById('result'), fill=document.getElementById('fill'), conf=document.getElementById('confidence');
+let stream=null, media=null, chunks=[], start=0, interval=null;
+
+function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.add('show');setTimeout(()=>x.classList.remove('show'),2600)}
+function clock(){let s=Math.floor((Date.now()-start)/1000);timer.textContent=`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}
+async function startRec(){
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  media=new MediaRecorder(stream);chunks=[];
+  media.ondataavailable=e=>chunks.push(e.data);
+  media.onstop=()=>{stream.getTracks().forEach(t=>t.stop()); analyze()};
+  media.start();start=Date.now();interval=setInterval(clock,250);
+  rec.classList.add('recording');btn.classList.add('active');btn.textContent='⏹️';status.textContent='Ouvindo… aproxime-se da ave sem fazer ruído';toast('Microfone ativado');
+ }catch(e){status.textContent='Não foi possível acessar o microfone';toast('Permita o acesso ao microfone no navegador')}
+}
+function stopRec(){if(media&&media.state!=='inactive')media.stop();clearInterval(interval);rec.classList.remove('recording');btn.classList.remove('active');btn.textContent='🎙️';status.textContent='Processando gravação…'}
+function analyze(){
+ setTimeout(()=>{result.classList.add('show');status.textContent='Áudio captado. A identificação BirdNET será conectada nesta etapa.';conf.textContent='94%';fill.style.width='94%';toast('Gravação concluída — resultado demonstrativo')},700)
+}
+btn.onclick=()=>media&&media.state==='recording'?stopRec():startRec();
+document.getElementById('newBtn').onclick=()=>{result.classList.remove('show');timer.textContent='00:00';status.textContent='Toque para ouvir o ambiente';fill.style.width='0';conf.textContent='—'}
+document.getElementById('saveBtn').onclick=()=>toast('Registro preparado — banco de dados será conectado na próxima etapa');
+document.getElementById('photoBtn').onclick=()=>toast('Módulo de observações será conectado na próxima etapa');
+document.getElementById('soundsBtn').onclick=()=>toast('Banco de vocalizações será conectado na próxima etapa');
+
+
+const demoSounds = [
+  {type:"Canto", title:"Canto principal", meta:"Sabiá-laranjeira • referência demonstrativa", source:"Xeno-canto", url:"https://xeno-canto.org"},
+  {type:"Chamado", title:"Chamado de contato", meta:"Sabiá-laranjeira • referência demonstrativa", source:"Macaulay Library", url:"https://www.macaulaylibrary.org"}
+];
+
+function renderSounds(query){
+  const q=query.trim()||"Sabiá-laranjeira";
+  const box=document.getElementById('soundResults');
+  document.getElementById('soundStatus').textContent =
+    `Vocalizações encontradas para “${q}”. Na integração real, os resultados virão das bases selecionadas.`;
+  box.innerHTML=demoSounds.map((s,i)=>`
+    <div class="soundcard">
+      <div class="soundtop">
+        <div><div class="soundname">${s.title}</div><div class="soundmeta">${q} • ${s.meta.split("•")[1]||""}</div></div>
+        <span class="soundtype">${s.type}</span>
+      </div>
+      <audio controls preload="none" src=""></audio>
+      <div class="soundlinks">
+        <a href="${s.url}" target="_blank" rel="noopener">Abrir ${s.source} ↗</a>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('searchBird').addEventListener('keydown',e=>{if(e.key==='Enter')renderSounds(e.target.value)});
+document.getElementById('searchBird').addEventListener('input',()=>{});
+document.getElementById('searchBird').value='Sabiá-laranjeira';
+document.getElementById('searchBird').closest('.section')?.querySelector('.link')?.addEventListener('click',()=>document.getElementById('vocalizacoes').scrollIntoView({behavior:'smooth'}));
+document.getElementById('searchBird').parentElement.querySelector('#searchBird');
+document.getElementById('searchBird').nextElementSibling.addEventListener('click',()=>renderSounds(document.getElementById('birdSearch').value));
+renderSounds('Sabiá-laranjeira');
+
+if(navigator.geolocation){
+ navigator.geolocation.getCurrentPosition(()=>document.getElementById('gps').textContent='disponível',()=>document.getElementById('gps').textContent='indisponível');
+}
+</script>
+</body>
+</html>
