@@ -30,12 +30,16 @@ async function loadLabels(){
 
 async function init(){
  try{
-  await tf.setBackend('webgl');tf.serialization.registerClass(MelSpecLayerSimple);
+  tf.serialization.registerClass(MelSpecLayerSimple);
+  try{await tf.setBackend('webgl')}catch(e){await tf.setBackend('cpu')}
+  await tf.ready();
   postMessage({message:'load_model',progress:5});
   birdModel=await tf.loadLayersModel(MODEL_PATH,{onProgress:p=>postMessage({message:'load_model',progress:Math.round(p*75)})});
   tf.tidy(()=>birdModel.predict(tf.zeros([1,WINDOW_SAMPLES])));
   try{areaModel=await tf.loadGraphModel(AREA_MODEL_PATH)}catch(e){console.warn('BirdNET geo model unavailable',e)}
-  await loadLabels();postMessage({message:'loaded'});
+  await loadLabels();
+  if(birds.length!==birdModel.outputs[0].shape.at(-1))throw Error('Rótulos BirdNET incompatíveis com o modelo');
+  postMessage({message:'loaded'});
  }catch(e){postMessage({message:'error',error:e?.message||String(e)})}
 }
 
@@ -47,11 +51,12 @@ function pooled(predictionList){
 
 async function predict(data){
  const pcm=data.pcmAudio||new Float32Array(0);if(pcm.length<WINDOW_SAMPLES)throw Error('Áudio menor que 3 segundos');
+ if(Number.isFinite(data.latitude)&&Number.isFinite(data.longitude))await areaScores(Number(data.latitude),Number(data.longitude));
  const overlap=Math.min(2.5,Math.max(0,Number(data.overlapSec??1.5))),hop=Math.max(1,WINDOW_SAMPLES-Math.round(overlap*SAMPLE_RATE));
  const frames=Math.max(1,Math.ceil(Math.max(0,pcm.length-WINDOW_SAMPLES)/hop)+1),framed=new Float32Array(frames*WINDOW_SAMPLES);
  for(let f=0;f<frames;f++){const start=f*hop;framed.set(pcm.subarray(start,Math.min(start+WINDOW_SAMPLES,pcm.length)),f*WINDOW_SAMPLES)}
- const x=tf.tensor2d(framed,[frames,WINDOW_SAMPLES]),y=birdModel.predict(x),list=await y.array();x.dispose();y.dispose();
- postMessage({message:'pooled',pooled:pooled(list)});
+ const x=tf.tensor2d(framed,[frames,WINDOW_SAMPLES]);let y;
+ try{y=birdModel.predict(x);const list=await y.array();postMessage({message:'pooled',pooled:pooled(list)})}finally{x.dispose();y?.dispose()}
 }
 
 async function areaScores(lat,lon){
