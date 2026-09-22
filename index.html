@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#173b2a">
 <meta name="description" content="Aves Brasil — identificação acústica para observadores de aves">
 <title>Aves Brasil | Birdwatching</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#f4f1e8;--card:#fffdf8;--ink:#173025;--muted:#68756d;
@@ -55,6 +56,16 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 .soundcard audio{width:100%;height:38px;margin-top:10px}
 .soundlinks{display:flex;gap:12px;margin-top:7px}.soundlinks a{font-size:11px;color:var(--green2);font-weight:750;text-decoration:none}
 @media(min-width:700px){body{padding:20px}.app{border-radius:30px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.08)}}
+
+.authbar{display:flex;gap:8px;margin-top:14px}
+.authbtn{padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-size:12px;font-weight:750}
+.authbtn.solid{background:#fff;color:var(--green)}
+.modal{position:fixed;inset:0;background:rgba(8,24,17,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal.show{display:flex}.modalcard{width:min(430px,100%);background:var(--card);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
+.modalcard h3{margin:0 0 6px}.modalcard p{font-size:12px;color:var(--muted);margin:0 0 15px}
+.field{width:100%;border:1px solid var(--line);border-radius:13px;padding:12px;margin:6px 0;font:inherit}
+.rowbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.userpill{font-size:11px;color:#d8e4dc;margin-top:7px}
 </style>
 </head>
 <body>
@@ -62,6 +73,11 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 <header>
   <div class="brand"><div class="logo">🐦</div><div><h1>Aves Brasil</h1><p>Seu diário de campo inteligente</p></div></div>
   <div class="location"><span>📍 Localização do dispositivo</span><span id="gps">não definida</span></div>
+  <div class="authbar">
+    <button class="authbtn solid" id="loginOpen">Entrar / Criar conta</button>
+    <button class="authbtn" id="logoutBtn" style="display:none">Sair</button>
+  </div>
+  <div class="userpill" id="userState">Visitante</div>
 </header>
 
 <main>
@@ -113,8 +129,30 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 <footer>Aves Brasil • Protótipo v0.1 • Identificação BirdNET será conectada no backend</footer>
 </div>
 <div class="toast" id="toast"></div>
+<div class="modal" id="authModal">
+  <div class="modalcard">
+    <h3>Conta Songbird</h3>
+    <p>Entre ou crie uma conta para salvar suas observações, fotos e gravações.</p>
+    <input class="field" id="authName" placeholder="Seu nome (para cadastro)">
+    <input class="field" id="authEmail" type="email" placeholder="E-mail">
+    <input class="field" id="authPassword" type="password" placeholder="Senha (mín. 6 caracteres)">
+    <div class="rowbtns">
+      <button class="secondary" id="signUpBtn">Criar conta</button>
+      <button class="primary" id="signInBtn">Entrar</button>
+    </div>
+    <button class="secondary" id="closeAuth" style="width:100%;margin-top:8px">Cancelar</button>
+  </div>
+</div>
 
 <script>
+const SUPABASE_URL = "https://rovmeerszxujrbcecaka.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvdm1lZXJzenh1anJiY2VjYWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwODI5MDcsImV4cCI6MjEwNTY1ODkwN30.L4QIRna9FyCRYjYpEQKJBV1SMpztxqJXrZrKRVzKZrk";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let currentCoords = null;
+let lastAudioBlob = null;
+
 const wave=document.getElementById('wave');
 for(let i=0;i<25;i++){const b=document.createElement('div');b.className='bar';wave.appendChild(b)}
 const btn=document.getElementById('recordBtn'), rec=document.getElementById('recorder');
@@ -129,7 +167,7 @@ async function startRec(){
   stream=await navigator.mediaDevices.getUserMedia({audio:true});
   media=new MediaRecorder(stream);chunks=[];
   media.ondataavailable=e=>chunks.push(e.data);
-  media.onstop=()=>{stream.getTracks().forEach(t=>t.stop()); analyze()};
+  media.onstop=()=>{stream.getTracks().forEach(t=>t.stop()); lastAudioBlob=new Blob(chunks,{type:media.mimeType||'audio/webm'}); analyze()};
   media.start();start=Date.now();interval=setInterval(clock,250);
   rec.classList.add('recording');btn.classList.add('active');btn.textContent='⏹️';status.textContent='Ouvindo… aproxime-se da ave sem fazer ruído';toast('Microfone ativado');
  }catch(e){status.textContent='Não foi possível acessar o microfone';toast('Permita o acesso ao microfone no navegador')}
@@ -140,7 +178,7 @@ function analyze(){
 }
 btn.onclick=()=>media&&media.state==='recording'?stopRec():startRec();
 document.getElementById('newBtn').onclick=()=>{result.classList.remove('show');timer.textContent='00:00';status.textContent='Toque para ouvir o ambiente';fill.style.width='0';conf.textContent='—'}
-document.getElementById('saveBtn').onclick=()=>toast('Registro preparado — banco de dados será conectado na próxima etapa');
+document.getElementById('saveBtn').onclick=saveObservation;
 document.getElementById('photoBtn').onclick=()=>toast('Módulo de observações será conectado na próxima etapa');
 document.getElementById('soundsBtn').onclick=()=>toast('Banco de vocalizações será conectado na próxima etapa');
 
@@ -175,9 +213,78 @@ document.getElementById('searchBird').parentElement.querySelector('#searchBird')
 document.getElementById('searchBird').nextElementSibling.addEventListener('click',()=>renderSounds(document.getElementById('birdSearch').value));
 renderSounds('Sabiá-laranjeira');
 
-if(navigator.geolocation){
- navigator.geolocation.getCurrentPosition(()=>document.getElementById('gps').textContent='disponível',()=>document.getElementById('gps').textContent='indisponível');
+
+function startLocation(){
+  if(!navigator.geolocation){document.getElementById('gps').textContent='indisponível';return}
+  navigator.geolocation.watchPosition(
+    pos=>{
+      currentCoords={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy};
+      document.getElementById('gps').textContent='GPS ativo';
+    },
+    ()=>document.getElementById('gps').textContent='localização desativada',
+    {enableHighAccuracy:true,maximumAge:30000,timeout:12000}
+  );
 }
+startLocation();
+
+const authModal=document.getElementById('authModal');
+document.getElementById('loginOpen').onclick=()=>authModal.classList.add('show');
+document.getElementById('closeAuth').onclick=()=>authModal.classList.remove('show');
+
+async function refreshAuth(){
+  const {data:{session}}=await sb.auth.getSession();
+  currentUser=session?.user||null;
+  document.getElementById('userState').textContent=currentUser ? `Conectado: ${currentUser.email}` : 'Visitante';
+  document.getElementById('loginOpen').style.display=currentUser?'none':'inline-block';
+  document.getElementById('logoutBtn').style.display=currentUser?'inline-block':'none';
+}
+sb.auth.onAuthStateChange(()=>refreshAuth());
+refreshAuth();
+
+document.getElementById('signUpBtn').onclick=async()=>{
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  const name=document.getElementById('authName').value.trim();
+  const {error}=await sb.auth.signUp({email,password,options:{data:{name}}});
+  if(error)return toast(error.message);
+  authModal.classList.remove('show');toast('Conta criada e conectada');refreshAuth();
+};
+document.getElementById('signInBtn').onclick=async()=>{
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  if(error)return toast('Não foi possível entrar: '+error.message);
+  authModal.classList.remove('show');toast('Login realizado');refreshAuth();
+};
+document.getElementById('logoutBtn').onclick=async()=>{await sb.auth.signOut();toast('Sessão encerrada');refreshAuth()};
+
+async function saveObservation(){
+  if(!currentUser){authModal.classList.add('show');return toast('Entre para salvar a observação')}
+  const payload={
+    user_id:currentUser.id,
+    detected_common_name:document.getElementById('species').textContent,
+    detected_scientific_name:'Turdus rufiventris',
+    confidence:94,
+    latitude:currentCoords?.latitude??null,
+    longitude:currentCoords?.longitude??null,
+    identification_source:'prototype'
+  };
+  const {data,error}=await sb.from('observations').insert(payload).select('id').single();
+  if(error)return toast('Erro ao salvar: '+error.message);
+
+  if(lastAudioBlob){
+    const ext=lastAudioBlob.type.includes('mp4')?'m4a':'webm';
+    const storagePath=`${currentUser.id}/${data.id}-${Date.now()}.${ext}`;
+    const up=await sb.storage.from('bird-audio').upload(storagePath,lastAudioBlob,{contentType:lastAudioBlob.type||'audio/webm'});
+    if(!up.error){
+      await sb.from('observation_media').insert({
+        observation_id:data.id,user_id:currentUser.id,media_type:'audio',storage_path:storagePath
+      });
+    }
+  }
+  toast('Observação salva no Songbird');
+}
+
 </script>
 </body>
 </html>
