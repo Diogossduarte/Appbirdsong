@@ -1,0 +1,12 @@
+{
+  "name": "Songbird — Aves Brasil",
+  "short_name": "Songbird",
+  "description": "Identificação acústica e diário de campo para observação de aves.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1e8",
+  "theme_color": "#173b2a",
+  "lang": "pt-BR",
+  "orientation": "portrait-primary"
+}
