@@ -5,21 +5,35 @@
 export class BirdNetClient {
   constructor({ workerUrl = './js/birdnet-worker.js', modelRoot = './models', language = 'pt' } = {}) {
     this.workerUrl = workerUrl;
-    this.modelRoot = modelRoot;
+    this.modelRoot = new URL(modelRoot, document.baseURI).href.replace(/\/$/, '');
     this.language = language;
     this.worker = null;
     this.ready = false;
     this.pending = null;
     this.lastSegments = [];
+    this.initPromise = null;
   }
 
   init() {
-    if (this.worker) return Promise.resolve(this.ready);
-    return new Promise((resolve, reject) => {
+    if (this.ready) return Promise.resolve(true);
+    if (this.initPromise) return this.initPromise;
+    this.initPromise = new Promise((resolve, reject) => {
       const url = `${this.workerUrl}?root=${encodeURIComponent(this.modelRoot)}&lang=${encodeURIComponent(this.language)}`;
       this.worker = new Worker(url);
       const timeout = setTimeout(() => reject(new Error('Tempo excedido ao carregar o BirdNET.')), 120000);
-      this.worker.onerror = e => { clearTimeout(timeout); reject(new Error(e.message || 'Falha ao iniciar BirdNET.')); };
+      const fail = message => {
+        clearTimeout(timeout);
+        const error = new Error(message || 'Falha ao iniciar BirdNET.');
+        if (this.pending) {
+          const pending = this.pending;
+          this.pending = null;
+          clearTimeout(pending.timer);
+          pending.reject(error);
+        } else {
+          reject(error);
+        }
+      };
+      this.worker.onerror = event => fail(event.message);
       this.worker.onmessage = ({ data }) => {
         if (data.message === 'loaded') {
           clearTimeout(timeout);
@@ -27,14 +41,25 @@ export class BirdNetClient {
           resolve(true);
           return;
         }
+        if (data.message === 'error') {
+          fail(data.error);
+          return;
+        }
         if (data.message === 'segments') this.lastSegments = data.segments || [];
         if (data.message === 'pooled' && this.pending) {
           const ranked = this.rank(data.pooled || []);
           const done = this.pending;
           this.pending = null;
+          clearTimeout(done.timer);
           done.resolve({ best: ranked[0] || null, alternatives: ranked.slice(1, 5), segments: this.lastSegments });
         }
       };
+    });
+    return this.initPromise.catch(error => {
+      this.worker?.terminate();
+      this.worker = null;
+      this.initPromise = null;
+      throw error;
     });
   }
 
@@ -51,19 +76,18 @@ export class BirdNetClient {
 
   async analyzeBlob(blob, { latitude = null, longitude = null, sensitivity = 1, overlapSec = 1.5 } = {}) {
     if (!this.ready) await this.init();
-    if (Number.isFinite(latitude) && Number.isFinite(longitude)) this.setLocation(latitude, longitude);
     const pcmAudio = await this.decodeTo48kMono(blob);
     if (pcmAudio.length < 144000) throw new Error('Grave pelo menos 3 segundos para identificar a ave.');
     if (this.pending) throw new Error('Já existe uma análise em andamento.');
     return new Promise((resolve, reject) => {
-      this.pending = { resolve, reject };
-      this.worker.postMessage({ message: 'predict', pcmAudio, sensitivity, overlapSec }, [pcmAudio.buffer]);
-      setTimeout(() => {
-        if (this.pending) {
+      const timer = setTimeout(() => {
+        if (this.pending?.timer === timer) {
           this.pending = null;
           reject(new Error('A identificação demorou mais que o esperado.'));
         }
       }, 60000);
+      this.pending = { resolve, reject, timer };
+      this.worker.postMessage({ message: 'predict', pcmAudio, latitude, longitude, sensitivity, overlapSec }, [pcmAudio.buffer]);
     });
   }
 
