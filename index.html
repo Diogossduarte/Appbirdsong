@@ -56,6 +56,9 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 .soundtype{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--green2);background:#eaf0eb;padding:6px 8px;border-radius:9px;white-space:nowrap}
 .soundcard audio{width:100%;height:38px;margin-top:10px}
 .soundlinks{display:flex;gap:12px;margin-top:7px}.soundlinks a{font-size:11px;color:var(--green2);font-weight:750;text-decoration:none}
+.xeno{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.xeno-status{font-size:12px;color:var(--muted);min-height:18px}
+.xeno button{width:100%;margin-top:8px}
 @media(min-width:700px){body{padding:20px}.app{border-radius:30px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.08)}}
 
 .authbar{display:flex;gap:8px;margin-top:14px}
@@ -98,6 +101,11 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
     <div class="species"><div class="birdicon">🐦</div><div><h3 id="species">—</h3><div class="scientific" id="scientific">—</div></div></div>
     <div class="conf"><div class="confline"><span>Confiança da identificação</span><span id="confidence">—</span></div><div class="track"><div class="fill" id="fill"></div></div></div>
     <audio id="recordingPlayer" controls preload="metadata" style="width:100%;height:38px;margin-top:15px"></audio>
+    <div class="xeno">
+      <div class="xeno-status" id="xenoStatus"></div>
+      <audio id="xenoCantoPlayer" preload="none" hidden></audio>
+      <button class="primary" id="xenoPlayBtn" type="button" hidden>▶ REPRODUZIR CANTO</button>
+    </div>
     <div class="actions"><button class="secondary" id="newBtn">🎙️ Nova análise</button><button class="primary" id="saveBtn">📌 Registrar</button></div>
   </div>
 </section>
@@ -151,6 +159,7 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 
 <script type="module">
 import { BirdNetClient } from './js/birdnet-client.js';
+import { findXenoCantoRecording } from './js/xeno-canto.js';
 const SUPABASE_URL = "https://rovmeerszxujrbcecaka.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvdm1lZXJzenh1anJiY2VjYWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwODI5MDcsImV4cCI6MjEwNTY1ODkwN30.L4QIRna9FyCRYjYpEQKJBV1SMpztxqJXrZrKRVzKZrk";
 const sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) || null;
@@ -160,6 +169,7 @@ let currentCoords = null;
 let lastAudioBlob = null;
 let lastAudioUrl = null;
 let lastIdentification = null;
+let xenoCantoUrl = null;
 const birdnet = new BirdNetClient();
 
 const wave=document.getElementById('wave');
@@ -167,6 +177,7 @@ for(let i=0;i<25;i++){const b=document.createElement('div');b.className='bar';wa
 const btn=document.getElementById('recordBtn'), rec=document.getElementById('recorder');
 const status=document.getElementById('status'), timer=document.getElementById('timer');
 const result=document.getElementById('result'), fill=document.getElementById('fill'), conf=document.getElementById('confidence');
+const xenoStatus=document.getElementById('xenoStatus'), xenoCantoPlayer=document.getElementById('xenoCantoPlayer'), xenoPlayBtn=document.getElementById('xenoPlayBtn');
 let stream=null, media=null, chunks=[], start=0, interval=null;
 
 function toast(t){const x=document.getElementById('toast');x.textContent=t;x.classList.add('show');setTimeout(()=>x.classList.remove('show'),2600)}
@@ -189,6 +200,19 @@ async function startRec(){
  }catch(e){status.textContent='Não foi possível acessar o microfone';toast('Permita o acesso ao microfone no navegador')}
 }
 function stopRec(){if(media&&media.state!=='inactive')media.stop();clearInterval(interval);rec.classList.remove('recording');btn.classList.remove('active');btn.textContent='🎙️';status.textContent='Processando gravação…'}
+function resetXenoCanto(){
+ xenoCantoUrl=null;xenoCantoPlayer.pause();xenoCantoPlayer.removeAttribute('src');xenoCantoPlayer.load();
+ xenoPlayBtn.hidden=true;xenoPlayBtn.disabled=false;xenoStatus.textContent='';
+}
+async function lookupXenoCanto(scientificName){
+ resetXenoCanto();xenoStatus.textContent='Buscando canto...';
+ try{
+  const recording=await findXenoCantoRecording(sb,scientificName);
+  if(!recording){xenoStatus.textContent='Nenhum canto encontrado no Xeno-canto.';return}
+  xenoCantoUrl=recording.audioUrl;xenoCantoPlayer.src=xenoCantoUrl;xenoPlayBtn.hidden=false;
+  xenoStatus.textContent='Canto encontrado no Xeno-canto.';
+ }catch(e){xenoStatus.textContent='Não foi possível buscar o canto no Xeno-canto.'}
+}
 async function analyze(){
  try{
   status.textContent='Analisando localmente com BirdNET…';
@@ -202,12 +226,17 @@ async function analyze(){
   document.getElementById('scientific').textContent=lastIdentification.scientificName;
   result.classList.add('show');status.textContent='Identificação concluída no dispositivo.';
   conf.textContent=`${confidence}%`;fill.style.width=`${confidence}%`;toast('Análise BirdNET concluída');
+  await lookupXenoCanto(lastIdentification.scientificName);
  }catch(e){
   lastIdentification=null;result.classList.remove('show');status.textContent=e.message||'Não foi possível analisar a gravação.';toast('Falha na identificação local');
  }
 }
 btn.onclick=()=>media&&media.state==='recording'?stopRec():startRec();
-document.getElementById('newBtn').onclick=()=>{result.classList.remove('show');timer.textContent='00:00';status.textContent='Toque para ouvir o ambiente';fill.style.width='0';conf.textContent='—'}
+document.getElementById('newBtn').onclick=()=>{result.classList.remove('show');timer.textContent='00:00';status.textContent='Toque para ouvir o ambiente';fill.style.width='0';conf.textContent='—';resetXenoCanto()}
+xenoPlayBtn.onclick=async()=>{
+ if(!xenoCantoUrl)return;
+ try{await xenoCantoPlayer.play()}catch{toast('Não foi possível reproduzir o canto')}
+}
 document.getElementById('saveBtn').onclick=saveObservation;
 document.getElementById('photoBtn').onclick=()=>toast('Módulo de observações será conectado na próxima etapa');
 document.getElementById('soundsBtn').onclick=()=>toast('Banco de vocalizações será conectado na próxima etapa');
