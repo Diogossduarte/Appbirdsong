@@ -1,7 +1,8 @@
-const CACHE_NAME = 'songbird-offline-v5';
+const CACHE_NAME = 'songbird-offline-v6';
 const APP_SHELL = [
   './', './index.html', './manifest.json',
   './js/birdnet.js', './js/birdnet-client.js', './js/birdnet-worker.js', './js/xeno-canto.js',
+  './js/species-repository.js', './js/bird-guide.js',
   './js/tfjs-4.14.0.min.js', './js/audio-processor.js',
   './models/birdnet/model.json',
   ...Array.from({length:13},(_,i)=>`./models/birdnet/group1-shard${i+1}of13.bin`),

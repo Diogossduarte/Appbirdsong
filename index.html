@@ -71,6 +71,19 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 .field{width:100%;border:1px solid var(--line);border-radius:13px;padding:12px;margin:6px 0;font:inherit}
 .auth-submit{width:100%;margin-top:10px}
 .userpill{font-size:11px;color:#d8e4dc;margin-top:7px}
+.screen{position:fixed;inset:0;z-index:15;background:var(--bg);overflow:auto;display:none}.screen.active{display:block}
+.screen-inner{width:min(560px,100%);min-height:100vh;margin:auto;background:var(--bg);padding-bottom:30px}
+.guide-header{position:sticky;top:0;z-index:2;padding:18px 20px;background:linear-gradient(145deg,#173b2a,#28553d);color:#fff;box-shadow:0 5px 18px rgba(23,48,37,.16)}
+.back{padding:7px 0;background:transparent;color:inherit;font-weight:800}.guide-header h1{font-size:24px;margin:8px 0 2px}.guide-header p{margin:0;color:#d8e4dc;font-size:13px}
+.guide-body{padding:18px 20px}.guide-search{width:100%;padding:14px 15px;border:1px solid var(--line);border-radius:15px;background:#fff;font:inherit;color:var(--ink);box-shadow:0 4px 15px rgba(23,48,37,.05)}
+.guide-tabs{display:flex;gap:7px;margin:13px 0}.guide-tab{padding:9px 12px;border-radius:12px;background:#e5eae3;color:var(--muted);font-size:12px;font-weight:800}.guide-tab.active{background:var(--green);color:#fff}
+.guide-status{font-size:11px;color:var(--muted);margin:4px 2px 10px}.guide-results{display:grid;gap:9px}
+.guide-card{width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:var(--card);border:1px solid var(--line);padding:10px;border-radius:17px;color:var(--ink)}
+.guide-photo{width:62px;height:62px;flex:none;border-radius:13px;overflow:hidden;background:#e1e9e2;display:grid;place-items:center;font-size:25px}.guide-photo img{width:100%;height:100%;object-fit:cover}
+.guide-card-text{min-width:0;flex:1}.guide-card-text strong,.guide-card-text em,.guide-card-text small,.registered{display:block}.guide-card-text strong{font-size:14px}.guide-card-text em{font-size:12px;color:var(--muted);margin-top:2px}.guide-card-text small{color:var(--muted);margin-top:2px}.registered{color:var(--green2);font-size:10px;font-weight:800;margin-top:5px}.guide-empty{text-align:center;color:var(--muted);padding:30px 10px}
+#speciesView{min-height:100vh;background:var(--bg)}.species-actions{display:grid;gap:9px;padding:0 20px 25px}.detail-photo{width:100%;height:260px;object-fit:cover;background:#dfe9e0}.detail-photo.placeholder{display:grid;place-items:center;font-size:70px}
+.detail-content{padding:0 20px}.detail-content h2{margin:20px 0 3px}.detail-scientific{color:var(--muted)}.detail-family{font-size:12px;color:var(--green2);font-weight:800;margin-top:5px}.detail-field{border-top:1px solid var(--line);padding:14px 0}.detail-field:first-of-type{margin-top:18px}.detail-field strong{font-size:12px;text-transform:uppercase;letter-spacing:.6px}.detail-field p{font-size:14px;line-height:1.5;margin:5px 0 0;color:#4e5e55}
+.observation-form label{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-top:8px}.observation-form textarea{min-height:76px;resize:vertical}
 </style>
 </head>
 <body>
@@ -114,7 +127,7 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
   <button class="tile" id="photoBtn"><div class="icon">📷</div><strong>Registrar observação</strong><span>Foto, local, data e áudio</span></button>
   <button class="tile" id="soundsBtn"><div class="icon">🔊</div><strong>Vocalizações</strong><span>Banco de sons por espécie</span></button>
   <button class="tile"><div class="icon">🗺️</div><strong>Mapa de registros</strong><span>Explore suas observações</span></button>
-  <button class="tile"><div class="icon">📚</div><strong>Guia de aves</strong><span>Espécies da fauna brasileira</span></button>
+  <button class="tile" id="guideBtn"><div class="icon">📚</div><strong>Guia de aves</strong><span>Espécies da fauna brasileira</span></button>
 </div>
 
 
@@ -139,6 +152,23 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 </main>
 <footer>Aves Brasil • Protótipo v0.1 • Identificação BirdNET local</footer>
 </div>
+<section class="screen" id="guideScreen" aria-label="Guia de aves">
+  <div class="screen-inner">
+    <div id="guideListView">
+      <div class="guide-header"><button class="back" id="guideBack">← Voltar</button><h1>Guia de aves</h1><p>Espécies da fauna brasileira</p></div>
+      <div class="guide-body">
+        <input class="guide-search" id="guideSearch" type="search" placeholder="🔎 Buscar uma espécie" aria-label="Buscar uma espécie">
+        <div class="guide-tabs"><button class="guide-tab active" data-guide-filter="all">Todas</button><button class="guide-tab" data-guide-filter="mine" id="mineCount">Minhas aves · 0 espécies</button></div>
+        <div class="guide-status" id="guideStatus"></div><div class="guide-results" id="guideResults"></div>
+      </div>
+    </div>
+    <div id="speciesView" hidden>
+      <div class="guide-header"><button class="back" id="speciesBack">← Voltar</button></div>
+      <div class="detail-content" id="speciesDetail"></div>
+      <div class="species-actions"><audio id="guideSongPlayer" preload="none" hidden></audio><button class="primary" id="speciesSong">▶ REPRODUZIR CANTO</button><button class="secondary" id="speciesRegister">📌 REGISTRAR OBSERVAÇÃO</button></div>
+    </div>
+  </div>
+</section>
 <div class="toast" id="toast"></div>
 <div class="modal" id="authModal">
   <div class="modalcard">
@@ -156,10 +186,21 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
     <button class="secondary" id="closeAuth" style="width:100%;margin-top:8px">Cancelar</button>
   </div>
 </div>
+<div class="modal" id="observationModal">
+  <form class="modalcard observation-form" id="observationForm">
+    <h3>Registrar observação</h3><p>Os dados ficam disponíveis neste dispositivo e são sincronizados com sua conta quando possível.</p>
+    <label for="obsCommonName">Nome popular</label><input class="field" id="obsCommonName" required>
+    <label for="obsScientificName">Nome científico</label><input class="field" id="obsScientificName" required>
+    <label for="obsDate">Data e hora</label><input class="field" id="obsDate" type="datetime-local" required>
+    <label for="obsNotes">Anotações</label><textarea class="field" id="obsNotes" placeholder="Comportamento, ambiente, quantidade…"></textarea>
+    <button class="primary auth-submit" type="submit">Salvar observação</button><button class="secondary" id="cancelObservation" type="button" style="width:100%;margin-top:8px">Cancelar</button>
+  </form>
+</div>
 
 <script type="module">
 import { BirdNetClient } from './js/birdnet-client.js';
 import { findXenoCantoRecording } from './js/xeno-canto.js';
+import { BirdGuide } from './js/bird-guide.js';
 const SUPABASE_URL = "https://rovmeerszxujrbcecaka.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvdm1lZXJzenh1anJiY2VjYWthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwODI5MDcsImV4cCI6MjEwNTY1ODkwN30.L4QIRna9FyCRYjYpEQKJBV1SMpztxqJXrZrKRVzKZrk";
 const sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) || null;
@@ -171,6 +212,7 @@ let lastAudioUrl = null;
 let lastIdentification = null;
 let xenoCantoUrl = null;
 const birdnet = new BirdNetClient();
+let guide;
 
 const wave=document.getElementById('wave');
 for(let i=0;i<25;i++){const b=document.createElement('div');b.className='bar';wave.appendChild(b)}
@@ -237,9 +279,13 @@ xenoPlayBtn.onclick=async()=>{
  if(!xenoCantoUrl)return;
  try{await xenoCantoPlayer.play()}catch{toast('Não foi possível reproduzir o canto')}
 }
-document.getElementById('saveBtn').onclick=saveObservation;
-document.getElementById('photoBtn').onclick=()=>toast('Módulo de observações será conectado na próxima etapa');
+document.getElementById('saveBtn').onclick=()=>openObservationForm(lastIdentification&&{
+  commonNamePt:lastIdentification.commonNameI18n||lastIdentification.commonName,
+  scientificName:lastIdentification.scientificName
+});
+document.getElementById('photoBtn').onclick=()=>openObservationForm();
 document.getElementById('soundsBtn').onclick=()=>toast('Banco de vocalizações será conectado na próxima etapa');
+document.getElementById('guideBtn').onclick=()=>guide.open();
 
 
 const demoSounds = [
@@ -352,33 +398,71 @@ document.getElementById('signInBtn').onclick=async()=>{
 };
 document.getElementById('logoutBtn').onclick=async()=>{if(!sb)return;await sb.auth.signOut();toast('Sessão encerrada');refreshAuth()};
 
-async function saveObservation(){
-  if(!sb)return toast('Conecte-se para salvar a observação');
-  if(!currentUser){authModal.classList.add('show');return toast('Entre para salvar a observação')}
+const observationModal=document.getElementById('observationModal');
+function openObservationForm(species={}){
+  document.getElementById('obsCommonName').value=species?.commonNamePt||'';
+  document.getElementById('obsScientificName').value=species?.scientificName||'';
+  const localNow=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('obsDate').value=localNow;
+  document.getElementById('obsNotes').value='';observationModal.classList.add('show');
+}
+document.getElementById('cancelObservation').onclick=()=>observationModal.classList.remove('show');
+observationModal.addEventListener('click',event=>{if(event.target===observationModal)observationModal.classList.remove('show')});
+document.getElementById('observationForm').addEventListener('submit',saveObservation);
+
+async function saveObservation(event){
+  event?.preventDefault();
+  const commonName=document.getElementById('obsCommonName').value.trim();
+  const scientificName=document.getElementById('obsScientificName').value.trim();
+  if(!commonName||!scientificName)return toast('Informe os nomes popular e científico.');
+  const observedAt=new Date(document.getElementById('obsDate').value).toISOString();
+  const notes=document.getElementById('obsNotes').value.trim()||null;
   const payload={
-    user_id:currentUser.id,
-    detected_common_name:document.getElementById('species').textContent,
-    detected_scientific_name:lastIdentification?.scientificName||document.getElementById('scientific').textContent,
-    confidence:Math.round((lastIdentification?.confidence||0)*100),
+    user_id:currentUser?.id||null,
+    detected_common_name:commonName,
+    detected_scientific_name:scientificName,
+    confidence:lastIdentification?.scientificName===scientificName?Math.round((lastIdentification.confidence||0)*100):null,
     latitude:currentCoords?.latitude??null,
     longitude:currentCoords?.longitude??null,
-    identification_source:'birdnet-local'
+    identification_source:lastIdentification?.scientificName===scientificName?'birdnet-local':'manual'
   };
-  const {data,error}=await sb.from('observations').insert(payload).select('id').single();
-  if(error)return toast('Erro ao salvar: '+error.message);
+  let remoteId=null;
+  if(sb&&currentUser&&navigator.onLine!==false){
+    const {data,error}=await sb.from('observations').insert(payload).select('id').single();
+    if(!error)remoteId=data.id;
+  }
+  await guide.repository.saveLocalObservation({
+    scientificName,commonNamePt:commonName,userId:currentUser?.id||null,observedAt,
+    notes,latitude:payload.latitude,longitude:payload.longitude,remoteId,synced:Boolean(remoteId)
+  });
 
-  if(lastAudioBlob){
+  if(remoteId&&lastAudioBlob&&lastIdentification?.scientificName===scientificName){
     const ext=lastAudioBlob.type.includes('mp4')?'m4a':'webm';
-    const storagePath=`${currentUser.id}/${data.id}-${Date.now()}.${ext}`;
+    const storagePath=`${currentUser.id}/${remoteId}-${Date.now()}.${ext}`;
     const up=await sb.storage.from('bird-audio').upload(storagePath,lastAudioBlob,{contentType:lastAudioBlob.type||'audio/webm'});
     if(!up.error){
       await sb.from('observation_media').insert({
-        observation_id:data.id,user_id:currentUser.id,media_type:'audio',storage_path:storagePath
+        observation_id:remoteId,user_id:currentUser.id,media_type:'audio',storage_path:storagePath
       });
     }
   }
-  toast('Observação salva no Songbird');
+  observationModal.classList.remove('show');await guide.observationSaved();
+  toast(remoteId?'Observação salva no Songbird':'Observação salva neste dispositivo');
 }
+
+async function playGuideSong(species){
+  const button=document.getElementById('speciesSong'),player=document.getElementById('guideSongPlayer');
+  button.disabled=true;button.textContent='Buscando canto…';
+  try{
+    const recording=await findXenoCantoRecording(sb,species.scientificName);
+    if(!recording)throw new Error('Nenhum canto encontrado.');
+    player.src=recording.audioUrl;await player.play();button.textContent='⏸ CANTO EM REPRODUÇÃO';
+    player.onended=()=>{button.textContent='▶ REPRODUZIR CANTO'};
+  }catch(error){toast(error.message||'Não foi possível reproduzir o canto');button.textContent='▶ REPRODUZIR CANTO'}
+  finally{button.disabled=false}
+}
+
+guide=new BirdGuide({supabase:sb,getUser:()=>currentUser,onRegister:openObservationForm,playSong:playGuideSong});
 
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 
