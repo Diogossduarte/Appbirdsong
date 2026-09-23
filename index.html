@@ -64,8 +64,9 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
 .modal{position:fixed;inset:0;background:rgba(8,24,17,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
 .modal.show{display:flex}.modalcard{width:min(430px,100%);background:var(--card);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
 .modalcard h3{margin:0 0 6px}.modalcard p{font-size:12px;color:var(--muted);margin:0 0 15px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:#edf1ea;border-radius:13px;margin:15px 0 10px}.tab{padding:10px;border-radius:10px;background:transparent;color:var(--muted);font-weight:750}.tab.active{background:#fff;color:var(--green);box-shadow:0 2px 8px rgba(23,48,37,.08)}
 .field{width:100%;border:1px solid var(--line);border-radius:13px;padding:12px;margin:6px 0;font:inherit}
-.rowbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.auth-submit{width:100%;margin-top:10px}
 .userpill{font-size:11px;color:#d8e4dc;margin-top:7px}
 </style>
 </head>
@@ -96,6 +97,7 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
   <div class="result" id="result">
     <div class="species"><div class="birdicon">🐦</div><div><h3 id="species">—</h3><div class="scientific" id="scientific">—</div></div></div>
     <div class="conf"><div class="confline"><span>Confiança da identificação</span><span id="confidence">—</span></div><div class="track"><div class="fill" id="fill"></div></div></div>
+    <audio id="recordingPlayer" controls preload="metadata" style="width:100%;height:38px;margin-top:15px"></audio>
     <div class="actions"><button class="secondary" id="newBtn">🎙️ Nova análise</button><button class="primary" id="saveBtn">📌 Registrar</button></div>
   </div>
 </section>
@@ -134,13 +136,15 @@ footer{text-align:center;color:#8a948e;font-size:10px;padding:22px}
   <div class="modalcard">
     <h3>Conta Songbird</h3>
     <p>Entre ou crie uma conta para salvar suas observações, fotos e gravações.</p>
-    <input class="field" id="authName" placeholder="Seu nome (para cadastro)">
-    <input class="field" id="authEmail" type="email" placeholder="E-mail">
-    <input class="field" id="authPassword" type="password" placeholder="Senha (mín. 6 caracteres)">
-    <div class="rowbtns">
-      <button class="secondary" id="signUpBtn">Criar conta</button>
-      <button class="primary" id="signInBtn">Entrar</button>
+    <div class="tabs" role="tablist" aria-label="Autenticação">
+      <button class="tab active" id="signInTab" type="button" role="tab" aria-selected="true">Entrar</button>
+      <button class="tab" id="signUpTab" type="button" role="tab" aria-selected="false">Criar conta</button>
     </div>
+    <input class="field" id="authName" placeholder="Nome" autocomplete="name" hidden>
+    <input class="field" id="authEmail" type="email" placeholder="E-mail">
+    <input class="field" id="authPassword" type="password" placeholder="Senha" autocomplete="current-password">
+    <button class="primary auth-submit" id="signInBtn">Entrar</button>
+    <button class="primary auth-submit" id="signUpBtn" hidden>Criar conta</button>
     <button class="secondary" id="closeAuth" style="width:100%;margin-top:8px">Cancelar</button>
   </div>
 </div>
@@ -154,6 +158,7 @@ const sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) || nul
 let currentUser = null;
 let currentCoords = null;
 let lastAudioBlob = null;
+let lastAudioUrl = null;
 let lastIdentification = null;
 const birdnet = new BirdNetClient();
 
@@ -171,7 +176,14 @@ async function startRec(){
   stream=await navigator.mediaDevices.getUserMedia({audio:true});
   media=new MediaRecorder(stream);chunks=[];
   media.ondataavailable=e=>chunks.push(e.data);
-  media.onstop=()=>{stream.getTracks().forEach(t=>t.stop()); lastAudioBlob=new Blob(chunks,{type:media.mimeType||'audio/webm'}); analyze()};
+  media.onstop=()=>{
+    stream.getTracks().forEach(t=>t.stop());
+    lastAudioBlob=new Blob(chunks,{type:media.mimeType||'audio/webm'});
+    if(lastAudioUrl)URL.revokeObjectURL(lastAudioUrl);
+    lastAudioUrl=URL.createObjectURL(lastAudioBlob);
+    document.getElementById('recordingPlayer').src=lastAudioUrl;
+    analyze();
+  };
   media.start();start=Date.now();interval=setInterval(clock,250);
   rec.classList.add('recording');btn.classList.add('active');btn.textContent='⏹️';status.textContent='Ouvindo… aproxime-se da ave sem fazer ruído';toast('Microfone ativado');
  }catch(e){status.textContent='Não foi possível acessar o microfone';toast('Permita o acesso ao microfone no navegador')}
@@ -249,6 +261,34 @@ startLocation();
 const authModal=document.getElementById('authModal');
 document.getElementById('loginOpen').onclick=()=>authModal.classList.add('show');
 document.getElementById('closeAuth').onclick=()=>authModal.classList.remove('show');
+authModal.addEventListener('click',e=>{if(e.target===authModal)authModal.classList.remove('show')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&authModal.classList.contains('show'))authModal.classList.remove('show')});
+
+let authMode='signIn';
+function setAuthMode(mode){
+  authMode=mode;
+  const creating=mode==='signUp';
+  document.getElementById('authName').hidden=!creating;
+  document.getElementById('authName').required=creating;
+  document.getElementById('authPassword').autocomplete=creating?'new-password':'current-password';
+  document.getElementById('signInBtn').hidden=creating;
+  document.getElementById('signUpBtn').hidden=!creating;
+  document.getElementById('signInTab').classList.toggle('active',!creating);
+  document.getElementById('signUpTab').classList.toggle('active',creating);
+  document.getElementById('signInTab').setAttribute('aria-selected',String(!creating));
+  document.getElementById('signUpTab').setAttribute('aria-selected',String(creating));
+}
+document.getElementById('signInTab').onclick=()=>setAuthMode('signIn');
+document.getElementById('signUpTab').onclick=()=>setAuthMode('signUp');
+function authErrorMessage(error, action){
+  const code=error?.code||'';
+  if(code==='invalid_credentials')return 'E-mail ou senha incorretos.';
+  if(code==='email_not_confirmed')return 'Confirme seu e-mail antes de entrar.';
+  if(code==='user_already_exists')return 'Este e-mail já possui uma conta.';
+  if(code==='weak_password')return 'A senha precisa ter pelo menos 6 caracteres.';
+  if(code==='over_email_send_rate_limit')return 'Limite de envio atingido. Tente novamente mais tarde.';
+  return action==='signUp'?'Não foi possível criar a conta. Verifique os dados.':'Não foi possível entrar. Verifique e-mail e senha.';
+}
 
 async function refreshAuth(){
   if(!sb)return;
@@ -265,16 +305,20 @@ document.getElementById('signUpBtn').onclick=async()=>{
   const email=document.getElementById('authEmail').value.trim();
   const password=document.getElementById('authPassword').value;
   const name=document.getElementById('authName').value.trim();
+  if(!name||!email||!password)return toast('Preencha nome, e-mail e senha.');
   const {error}=await sb.auth.signUp({email,password,options:{data:{name}}});
-  if(error)return toast(error.message);
-  authModal.classList.remove('show');toast('Conta criada e conectada');refreshAuth();
+  if(error)return toast(authErrorMessage(error,'signUp'));
+  authModal.classList.remove('show');
+  toast('Conta criada. Verifique seu e-mail para confirmar o cadastro.');
+  refreshAuth();
 };
 document.getElementById('signInBtn').onclick=async()=>{
   if(!sb)return toast('Autenticação indisponível sem conexão');
   const email=document.getElementById('authEmail').value.trim();
   const password=document.getElementById('authPassword').value;
+  if(!email||!password)return toast('Preencha e-mail e senha.');
   const {error}=await sb.auth.signInWithPassword({email,password});
-  if(error)return toast('Não foi possível entrar: '+error.message);
+  if(error)return toast(authErrorMessage(error,'signIn'));
   authModal.classList.remove('show');toast('Login realizado');refreshAuth();
 };
 document.getElementById('logoutBtn').onclick=async()=>{if(!sb)return;await sb.auth.signOut();toast('Sessão encerrada');refreshAuth()};

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'songbird-offline-v3';
+const CACHE_NAME = 'songbird-offline-v4';
 const APP_SHELL = [
   './', './index.html', './manifest.json',
   './js/birdnet.js', './js/birdnet-client.js', './js/birdnet-worker.js',

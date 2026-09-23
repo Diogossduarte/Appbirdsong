@@ -87,7 +87,8 @@ export class BirdNetClient {
         }
       }, 60000);
       this.pending = { resolve, reject, timer };
-      this.worker.postMessage({ message: 'predict', pcmAudio, latitude, longitude, sensitivity, overlapSec }, [pcmAudio.buffer]);
+      const pcmForWorker = pcmAudio.slice();
+      this.worker.postMessage({ message: 'predict', pcmAudio: pcmForWorker, latitude, longitude, sensitivity, overlapSec }, [pcmForWorker.buffer]);
     });
   }
 

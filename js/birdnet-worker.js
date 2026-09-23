@@ -23,9 +23,14 @@ class MelSpecLayerSimple extends tf.layers.Layer{
 
 async function loadLabels(){
  const lang=params.get('lang')||'pt';
- const en=(await fetch(LABELS_DIR+'/en_us.txt').then(r=>{if(!r.ok)throw Error('labels en_us');return r.text()})).split('\n').filter(Boolean);
- let loc=en;try{loc=(await fetch(`${LABELS_DIR}/${lang}.txt`).then(r=>r.text())).split('\n').filter(Boolean)}catch{}
- birds=en.map((line,i)=>{const [scientificName,commonName]=line.split('_');const [,commonNameI18n]=((loc[i]||line).split('_'));return{scientificName:scientificName||line,commonName:commonName||line,commonNameI18n:commonNameI18n||commonName||line,geoscore:1}})
+ const en=(await fetch(LABELS_DIR+'/en_us.txt').then(r=>{if(!r.ok)throw Error('labels en_us');return r.text()})).split(/\r?\n/).filter(Boolean);
+ let loc=en;try{loc=(await fetch(`${LABELS_DIR}/${lang}.txt`).then(r=>{if(!r.ok)throw Error(`labels ${lang}`);return r.text()})).split(/\r?\n/).filter(Boolean)}catch{}
+ birds=en.map((line,i)=>{
+  const [scientificName,commonName]=line.split('_');
+  const [localizedScientificName,localizedCommonName]=(loc[i]||line).split('_');
+  const validLocalizedScientificName=localizedScientificName===scientificName;
+  return{scientificName:validLocalizedScientificName?localizedScientificName:scientificName,commonName:commonName||line,commonNameI18n:validLocalizedScientificName?(localizedCommonName||commonName||line):commonName||line,geoscore:1}
+ })
 }
 
 async function init(){
